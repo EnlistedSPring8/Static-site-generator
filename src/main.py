@@ -1,4 +1,4 @@
-from src.textnode import TextNode, TextType
+from textnode import TextNode, TextType
 def main() -> None:
     TextNode1 = TextNode("Hello, World!", TextType.BOLD, "https://www.boot.dev")
     print(TextNode1)
