@@ -17,7 +17,7 @@ class HTMLNode:
     def __repr__(self):
         return f"HTMLNode(tag={self.tag}, value={self.value}, children={self.children}, props={self.props})"
     
-    class LeafNode(HTMLNode): # type: ignore
+class LeafNode(HTMLNode):
 
         def __init__(self, tag: str, value: str, props: dict[str, str] = None):
             super().__init__(tag=tag, value=value, props=props)
