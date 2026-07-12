@@ -1,5 +1,6 @@
 import unittest
-from textnode import TextNode, TextType, text_node_to_html_node, Enum
+from textnode import TextNode, TextType, Enum
+from functions import text_node_to_html_node, split_nodes_delimiter
 
 class TestTextNode(unittest.TestCase):
     def test_eq(self):
@@ -59,6 +60,56 @@ class TestTextNode(unittest.TestCase):
         node = TextNode("This is a text node", UnknownTextType.UNKNOWN)
         with self.assertRaises(Exception):
             text_node_to_html_node(node)
+
+    def test_split_nodes_delimiter_plain(self):
+        nodes = [TextNode("This is a text node")]
+        new_nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
+        self.assertEqual(len(new_nodes), 1)
+
+    def test_split_nodes_delimiter_with_italic(self):
+        nodes = [TextNode("This is _italic_ text")]
+        new_nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
+        self.assertEqual(len(new_nodes), 3)
+        self.assertEqual(new_nodes[0].text, "This is ")
+        self.assertEqual(new_nodes[1].text, "italic")
+        self.assertEqual(new_nodes[1].text_type, TextType.ITALIC)
+        self.assertEqual(new_nodes[2].text, " text")
+    
+    def test_split_nodes_delimiter_with_bold(self):
+        nodes = [TextNode("This is **bold** text")]
+        new_nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
+        self.assertEqual(len(new_nodes), 3)
+        self.assertEqual(new_nodes[0].text, "This is ")
+        self.assertEqual(new_nodes[1].text, "bold")
+        self.assertEqual(new_nodes[1].text_type, TextType.BOLD)
+        self.assertEqual(new_nodes[2].text, " text")
+    
+    def test_split_nodes_delimiter_with_code(self):
+        nodes = [TextNode("This is `code` text")]
+        new_nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
+        self.assertEqual(len(new_nodes), 3)
+        self.assertEqual(new_nodes[0].text, "This is ")
+        self.assertEqual(new_nodes[1].text, "code")
+        self.assertEqual(new_nodes[1].text_type, TextType.CODE)
+        self.assertEqual(new_nodes[2].text, " text")
+    
+    def test_split_nodes_delimiter_with_unsupported_delimiter(self):
+        nodes = [TextNode("This is a text node")]
+        with self.assertRaises(Exception):
+            split_nodes_delimiter(nodes, "unsupported", TextType.ITALIC)
+    
+    def test_split_nodes_delimiter_with_multiple_delimiters(self):
+        nodes = [TextNode("This is _italic_ and **bold** text")]
+        new_nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
+        new_nodes = split_nodes_delimiter(new_nodes, "**", TextType.BOLD)
+        self.assertEqual(len(new_nodes), 5)
+        self.assertEqual(new_nodes[0].text, "This is ")
+        self.assertEqual(new_nodes[1].text, "italic")
+        self.assertEqual(new_nodes[1].text_type, TextType.ITALIC)
+        self.assertEqual(new_nodes[2].text, " and ")
+        self.assertEqual(new_nodes[3].text, "bold")
+        self.assertEqual(new_nodes[3].text_type, TextType.BOLD)
+        self.assertEqual(new_nodes[4].text, " text")
 
 if __name__ == "__main__":
     unittest.main()
