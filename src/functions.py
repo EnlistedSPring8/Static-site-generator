@@ -1,3 +1,5 @@
+from pydoc import text
+
 from textnode import TextNode, TextType
 from htmlnode import LeafNode
 from variables import supported_delimiters
@@ -89,3 +91,12 @@ def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
             if last_index < len(old_node.text):
                 new_nodes.append(TextNode(old_node.text[last_index:], TextType.PLAIN))
     return new_nodes
+
+def text_to_textnodes(text: str) -> list[TextNode]:
+    nodes = [TextNode(text, TextType.PLAIN)]
+    nodes = split_nodes_image(nodes)
+    nodes = split_nodes_link(nodes)
+    nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
+    nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
+    nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
+    return nodes

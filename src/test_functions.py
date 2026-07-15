@@ -3,6 +3,7 @@ import unittest
 from textnode import TextNode, TextType, Enum
 
 from functions import text_node_to_html_node, split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link
+from functions import text_to_textnodes
 
 class TestFunctions(unittest.TestCase):
     def test_text_node_to_html_node_plain(self):
@@ -125,7 +126,6 @@ class TestFunctions(unittest.TestCase):
         text = "This is a link [link text](https://www.boot.dev) and an image ![alt text](https://www.boot.dev/image.png) in the text."
         links = extract_markdown_links(text)
         images = extract_markdown_images(text)
-        print(f"Links: {links}")
         self.assertEqual(len(links), 1)
         self.assertEqual(links[0][0], "link text")
         self.assertEqual(links[0][1], "https://www.boot.dev")
@@ -283,3 +283,63 @@ class TestFunctions(unittest.TestCase):
             ],
             new_nodes,
         )
+
+    def test_text_to_textnodes(self):
+        text = "This is a link [link text](https://www.boot.dev) and an image ![alt text](https://www.boot.dev/image.png) in the text."
+        nodes = text_to_textnodes(text)
+        self.assertEqual(len(nodes), 5)
+        self.assertEqual(nodes[0].text, "This is a link ")
+        self.assertEqual(nodes[1].text, "link text")
+        self.assertEqual(nodes[1].text_type, TextType.LINK)
+        self.assertEqual(nodes[1].url, "https://www.boot.dev")
+        self.assertEqual(nodes[2].text, " and an image ")
+        self.assertEqual(nodes[3].text, "alt text")
+        self.assertEqual(nodes[3].text_type, TextType.IMAGE)
+        self.assertEqual(nodes[3].url, "https://www.boot.dev/image.png")
+        self.assertEqual(nodes[4].text, " in the text.")
+
+    def test_text_to_textnodes_with_bold_and_italic(self):
+        text = "This is **bold** and _italic_ text."
+        nodes = text_to_textnodes(text)
+        print(f"START 2 Nodes: {nodes} 2 END")
+        self.assertEqual(len(nodes), 5)
+        self.assertEqual(nodes[0].text, "This is ")
+        self.assertEqual(nodes[1].text, "bold")
+        self.assertEqual(nodes[1].text_type, TextType.BOLD)
+        self.assertEqual(nodes[2].text, " and ")
+        self.assertEqual(nodes[3].text, "italic")
+        self.assertEqual(nodes[3].text_type, TextType.ITALIC)
+        self.assertEqual(nodes[4].text, " text.")
+    
+    def test_text_to_textnodes_with_code(self):
+        text = "This is `code` text."
+        nodes = text_to_textnodes(text)
+        self.assertEqual(len(nodes), 3)
+        self.assertEqual(nodes[0].text, "This is ")
+        self.assertEqual(nodes[1].text, "code")
+        self.assertEqual(nodes[1].text_type, TextType.CODE)
+        self.assertEqual(nodes[2].text, " text.")
+    
+    def test_text_to_textnodes_with_all(self):
+        text = "This is **bold**, _italic_, `code`, a [link](https://www.boot.dev), and an ![image](https://www.boot.dev/image.png)."
+        nodes = text_to_textnodes(text)
+        print(f"START 1 Nodes: {nodes} 1 END")
+        self.assertEqual(len(nodes), 11)
+        self.assertEqual(nodes[0].text, "This is ")
+        self.assertEqual(nodes[1].text, "bold")
+        self.assertEqual(nodes[1].text_type, TextType.BOLD)
+        self.assertEqual(nodes[2].text, ", ")
+        self.assertEqual(nodes[3].text, "italic")
+        self.assertEqual(nodes[3].text_type, TextType.ITALIC)
+        self.assertEqual(nodes[4].text, ", ")
+        self.assertEqual(nodes[5].text, "code")
+        self.assertEqual(nodes[5].text_type, TextType.CODE)
+        self.assertEqual(nodes[6].text, ", a ")
+        self.assertEqual(nodes[7].text, "link")
+        self.assertEqual(nodes[7].text_type, TextType.LINK)
+        self.assertEqual(nodes[7].url, "https://www.boot.dev")
+        self.assertEqual(nodes[8].text, ", and an ")
+        self.assertEqual(nodes[9].text, "image")
+        self.assertEqual(nodes[9].text_type, TextType.IMAGE)
+        self.assertEqual(nodes[9].url, "https://www.boot.dev/image.png")
+        self.assertEqual(nodes[10].text, ".")
