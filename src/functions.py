@@ -44,6 +44,48 @@ def extract_markdown_images(text: str) -> list[tuple[str, str]]:
     return matches
 
 def extract_markdown_links(text: str) -> list[tuple[str, str]]:
-    pattern = r'\[([^\]]+)\]\(([^)]+)\)'
+    pattern = r'[^!]\[([^\]]+)\]\(([^)]+)\)'
     matches = re.findall(pattern, text)
     return matches
+
+def split_nodes_image(old_nodes: list[TextNode]) -> list[TextNode]:
+    new_nodes = []
+    for old_node in old_nodes:
+        if old_node.text_type != TextType.PLAIN:
+            new_nodes.append(old_node)
+        else:
+            images = extract_markdown_images(old_node.text)
+            if not images:
+                new_nodes.append(old_node)
+                continue
+            last_index = 0
+            for alt_text, url in images:
+                start_index = old_node.text.find(f"![{alt_text}]({url})", last_index)
+                if start_index > last_index:
+                    new_nodes.append(TextNode(old_node.text[last_index:start_index], TextType.PLAIN))
+                new_nodes.append(TextNode(alt_text, TextType.IMAGE, url=url))
+                last_index = start_index + len(f"![{alt_text}]({url})")
+            if last_index < len(old_node.text):
+                new_nodes.append(TextNode(old_node.text[last_index:], TextType.PLAIN))
+    return new_nodes
+
+def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
+    new_nodes = []
+    for old_node in old_nodes:
+        if old_node.text_type != TextType.PLAIN:
+            new_nodes.append(old_node)
+        else:
+            links = extract_markdown_links(old_node.text)
+            if not links:
+                new_nodes.append(old_node)
+                continue
+            last_index = 0
+            for link_text, url in links:
+                start_index = old_node.text.find(f"[{link_text}]({url})", last_index)
+                if start_index > last_index:
+                    new_nodes.append(TextNode(old_node.text[last_index:start_index], TextType.PLAIN))
+                new_nodes.append(TextNode(link_text, TextType.LINK, url=url))
+                last_index = start_index + len(f"[{link_text}]({url})")
+            if last_index < len(old_node.text):
+                new_nodes.append(TextNode(old_node.text[last_index:], TextType.PLAIN))
+    return new_nodes
