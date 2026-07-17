@@ -1,9 +1,10 @@
 from pydoc import text
 
 from textnode import TextNode, TextType
-from htmlnode import LeafNode
-from variables import supported_delimiters
+from htmlnode import HTMLNode, LeafNode, ParentNode
+from variables import supported_delimiters, supported_block_types
 import re
+from blocktype import BlockType
 
 def text_node_to_html_node(text_node: TextNode) -> LeafNode:
     if text_node.text_type == TextType.PLAIN:
@@ -100,3 +101,142 @@ def text_to_textnodes(text: str) -> list[TextNode]:
     nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
     nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
     return nodes
+
+def markdown_to_blocks(markdown: str) -> list[str]:
+    lines = markdown.split("\n\n")
+    blocks = []
+    for line in lines:
+        if len(line) > 0 and not line.isspace():
+            line = line.strip()
+            blocks.append(line)
+    return blocks
+
+def block_to_block_type(block: str) -> BlockType:
+    if re.match(r"^#{1,6} ", block):
+        ## This regex matches headings from level 1 to 6, e.g., "# Heading", "## Heading", ..., "###### Heading"
+        ## must have a space after the hashes to be considered a heading
+        return BlockType.HEADING
+    elif block.startswith("```\n") and block.endswith("```"):
+        ## This regex matches code blocks
+        ## must start with ``` + \n and end with ``` to be considered a code block
+        return BlockType.CODE
+    elif block.startswith(">"):
+        ## This regex matches quote blocks
+        ## must start with > to be considered a quote block
+        return BlockType.QUOTE
+    elif re.match(r"^- ", block, re.MULTILINE):
+        ## This regex matches unordered lists
+        ## must start with - followed by a space to be considered an unordered list item
+        return BlockType.UNORDERED_LIST
+    elif re.match(r"^\d+\. ", block):
+        ## This regex matches ordered lists
+        ## must start with a number followed by a period and a space to be considered an ordered list item
+        ## We also need to check that the numbers are in order, e.g., "1. Item", "2. Item", etc.
+        line_number = 1
+        for line in block.splitlines():
+            if not re.match(r"^\d+\. ", line):
+                return BlockType.PARAGRAPH
+            current_number = int(line.split(".")[0])
+            if current_number != line_number:
+                return BlockType.PARAGRAPH
+            line_number += 1
+        return BlockType.ORDERED_LIST
+    else:
+        ## If none of the above patterns match, we consider it a paragraph
+        return BlockType.PARAGRAPH
+
+def block_type_to_html_node(block_type: BlockType, block) -> HTMLNode:
+    if block_type == BlockType.HEADING:
+        return HTMLNode(f"h{len(re.match(r"^#{1,6}", block))}")
+    elif block_type == BlockType.CODE:
+        return HTMLNode("code")
+    elif block_type == BlockType.QUOTE:
+        return HTMLNode("blockquote")
+    elif block_type == BlockType.UNORDERED_LIST:
+        unordered_list_item_leaf_nodes = []
+        unordered_list_items = block.splitlines()
+        for i in range(len(unordered_list_items) - 1):
+            unordered_list_item_leaf_nodes.append(HTMLNode("li"))
+        return ParentNode("ul", unordered_list_item_leaf_nodes)
+    elif block_type == BlockType.ORDERED_LIST:
+        ordered_list_item_leaf_nodes = []
+        ordered_list_items = block.splitlines()
+        for i in range(len(ordered_list_items) - 1):
+            ordered_list_item_leaf_nodes.append(HTMLNode("li"))
+        return ParentNode("ol", ordered_list_item_leaf_nodes)
+    elif block_type == BlockType.PARAGRAPH:
+        return HTMLNode("p")
+    else:
+        # if above don't apply we will consider it not to be supported
+        raise Exception(f"Block type not supported. Supported block types: {supported_block_types}")
+
+def text_to_children(text: str) -> list[HTMLNode]:
+    # code blocks taken care off separately
+    # need to take whiteline away
+    block_type = block_to_block_type(text)
+
+    text_nodes = []
+
+    # header (take the "#xx "away)
+    if block_type == BlockType.HEADING:
+        text_clean = text.split(re.match(r"^#{1,6} ", text))
+        text_nodes = text_to_textnodes(text_clean[1])
+
+    # quote (remember to take last > out if it exists)
+    elif block_type == BlockType.QUOTE:
+        text_not_clean = text.split(">")
+        text_nodes = text_to_textnodes(text_not_clean[1].split("<"))
+
+    # unordered list (take "- " away)
+    elif block_type == BlockType.UNORDERED_LIST:
+        text_clean = text.split("- ")
+        for i in text_clean:
+            text_nodes.append(text_to_textnodes(i))
+
+    # ordered list (take "1. , 2. , etc. away")
+    elif block_type == BlockType.ORDERED_LIST:
+        lines = text.splitlines()
+        for line in lines:
+           splitted_line = re.split(r"^\d. ")
+           text_nodes.append(text_to_textnodes(splitted_line[0]))
+    
+    # If no other block type matches it must be paragraph (error should have happened earlier)
+    else:
+        text_nodes.append(text_to_textnodes(text))
+    
+    # Turning TextNodes to HTMLNodes
+    html_nodes = []
+    for node in text_nodes:
+        html_nodes.append(text_node_to_html_node(node))
+    return html_nodes
+
+def markdown_to_html_node(markdown: str) -> HTMLNode:
+    # split markdown into blocks
+    blocks = markdown_to_blocks(markdown)
+    # loop over each block
+    html_nodes = []
+    for block in blocks:
+        #determine block type
+        # convert block to html node based on block type
+        block_type = block_to_block_type(block)
+        block_html_node = block_type_to_html_node(block_type, block)
+
+        # determine value or children values in the block_html_node
+        if block_type == BlockType.CODE:
+            block_text = block.split("```")
+            block_text = block_text[1].split()
+            code_text_node = TextNode(block_text[1], TextType.CODE)
+            code_html_child_node = [text_node_to_html_node(code_text_node)]
+            code_html_parent_node = ParentNode("pre", code_html_child_node)
+            html_nodes.append(code_html_parent_node)
+        else:
+            html_nodes.append(text_to_children(block))
+        
+        # Make text HTMLNodes and add it as children to the block HTMLNode
+        block_html_node.children = text_to_children(block)
+
+        # Add the block to the html_nodes list
+        html_nodes.append(block_html_node)
+
+    
+    return HTMLNode("div", None, html_nodes)
