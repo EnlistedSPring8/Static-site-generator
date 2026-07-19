@@ -219,7 +219,6 @@ def markdown_to_html_node(markdown: str) -> HTMLNode:
         #determine block type
         # convert block to html node based on block type
         block_type = block_to_block_type(block)
-        block_html_node = block_type_to_html_node(block_type, block)
 
         # determine value or children values in the block_html_node
         if block_type == BlockType.CODE:
