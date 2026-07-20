@@ -284,7 +284,7 @@ def extract_title(markdown: str):
     return true_title[0]
 
 
-def generate_page(from_path: str, template_path: str, dest_path: str):
+def generate_page(from_path: str, template_path: str, dest_path: str, basepath: str):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
     
     # Read the markdown file and store it (also close it)
@@ -306,6 +306,10 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
 
     template_path_html = template_path_html.replace("{{ Content }}", from_path_html)
 
+    template_path_html = template_path_html.replace('href="/', 'href="{basepath}')
+
+    template_path_html = template_path_html.replace('src="/', 'src="{basepath}')
+
     dir_name = os.path.dirname(dest_path)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name, exist_ok=True)
@@ -316,7 +320,7 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
 
     dest_path_f.close()
 
-def generate_page_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_page_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     
     if not os.path.exists(dir_path_content) or not os.path.exists(template_path):
         raise Exception("Given paths should be valid paths!")
@@ -334,9 +338,9 @@ def generate_page_recursive(dir_path_content, template_path, dest_dir_path):
             rel_dir_path = os.path.relpath(path, dir_path_content)
             new_dest_path = os.path.join(dest_dir_path, rel_dir_path)
             new_dest_path = str(new_dest_path).replace(".md", ".html")
-            generate_page(path, template_path, new_dest_path)
+            generate_page(path, template_path, new_dest_path, basepath)
         elif os.path.isdir(path):
             rel_dir_path = os.path.relpath(path, dir_path_content)
             new_dest_path = os.path.join(dest_dir_path, rel_dir_path)
-            generate_page_recursive(path, template_path, new_dest_path)
+            generate_page_recursive(path, template_path, new_dest_path, basepath)
         
